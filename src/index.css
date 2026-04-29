@@ -1,0 +1,10 @@
+@import "tailwindcss";
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background-color: #f8fafc;
+}
+
+.hero-bg {
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+}
