@@ -1,11 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 
-// Context-style global toast
 let addToastGlobal = null;
 const listeners = [];
 
 function notifyListeners(toasts) {
-  listeners.forEach(fn => fn(toasts));
+  listeners.forEach((fn) => fn(toasts));
 }
 
 export function showToast({ type = 'success', title, desc, duration = 3500 }) {
@@ -28,14 +27,14 @@ export default function Toast() {
   const addToast = useCallback((toast) => {
     const id = Date.now() + Math.random();
     const newToast = { ...toast, id, exiting: false };
-    setToasts(prev => [...prev, newToast]);
+    setToasts((prev) => [...prev, newToast]);
 
     setTimeout(() => {
-      setToasts(prev =>
-        prev.map(t => (t.id === id ? { ...t, exiting: true } : t))
+      setToasts((prev) =>
+        prev.map((t) => (t.id === id ? { ...t, exiting: true } : t))
       );
       setTimeout(() => {
-        setToasts(prev => prev.filter(t => t.id !== id));
+        setToasts((prev) => prev.filter((t) => t.id !== id));
       }, 300);
     }, toast.duration);
   }, []);
@@ -45,11 +44,11 @@ export default function Toast() {
   }, [addToast]);
 
   const removeToast = (id) => {
-    setToasts(prev =>
-      prev.map(t => (t.id === id ? { ...t, exiting: true } : t))
+    setToasts((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, exiting: true } : t))
     );
     setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id));
+      setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 300);
   };
 

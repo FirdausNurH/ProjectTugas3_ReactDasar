@@ -1,30 +1,40 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import Modal from './Modal';
 import ConfirmDialog from './ConfirmDialog';
 import { showToast } from './Toast';
 
-// ============ SAMPLE DATA ============
-// Ganti ini dengan data dari API/props project kamu
+// ═══════════════════════════════════════════
+//  SAMPLE DATA — Ganti dengan data dari API
+// ═══════════════════════════════════════════
 const initialAuthors = [
-  { id: 1, name: 'Tere Liye', country: 'Indonesia', bio: 'Penulis novel populer Indonesia dengan puluhan karya bestseller', bookCount: 28, status: 'Active' },
-  { id: 2, name: 'Andrea Hirata', country: 'Indonesia', bio: 'Penulis novel Laskar Pelangi yang mendunia', bookCount: 12, status: 'Active' },
-  { id: 3, name: 'J.K. Rowling', country: 'Inggris', bio: 'Pencipta dunia Harry Potter yang fenomenal', bookCount: 15, status: 'Active' },
-  { id: 4, name: 'Haruki Murakami', country: 'Jepang', bio: 'Penulis surrealisme terkenal asal Jepang', bookCount: 22, status: 'Active' },
-  { id: 5, name: 'Stephen King', country: 'Amerika', bio: 'Raja horor dan thriller dengan ratusan karya', bookCount: 64, status: 'Active' },
-  { id: 6, name: 'Pramoedya Ananta Toer', country: 'Indonesia', bio: 'Sastrawan besar Indonesia, penulis Tetralogi Buru', bookCount: 18, status: 'Inactive' },
-  { id: 7, name: 'Agatha Christie', country: 'Inggris', bio: 'Ratu novel detektif dengan karya ikonik Hercule Poirot', bookCount: 73, status: 'Inactive' },
-  { id: 8, name: 'Dee Lestari', country: 'Indonesia', bio: 'Penulis dan musisi, terkenal dengan novel Supernova', bookCount: 9, status: 'Active' },
+  { id: 1, name: 'Tere Liye', country: 'Indonesia', bio: 'Penulis novel populer Indonesia dengan puluhan karya bestseller nasional', bookCount: 28, status: 'Active' },
+  { id: 2, name: 'Andrea Hirata', country: 'Indonesia', bio: 'Penulis novel Laskar Pelangi yang mendunia dan fenomenal', bookCount: 12, status: 'Active' },
+  { id: 3, name: 'J.K. Rowling', country: 'Inggris', bio: 'Pencipta dunia Harry Potter yang menjadi fenomena global', bookCount: 15, status: 'Active' },
+  { id: 4, name: 'Haruki Murakami', country: 'Jepang', bio: 'Penulis surrealisme terkenal asal Jepang dengan gaya unik', bookCount: 22, status: 'Active' },
+  { id: 5, name: 'Stephen King', country: 'Amerika', bio: 'Raja horor dan thriller dengan lebih dari 60 novel terbit', bookCount: 64, status: 'Active' },
+  { id: 6, name: 'Pramoedya Ananta Toer', country: 'Indonesia', bio: 'Sastrawan besar Indonesia, pencipta Tetralogi Buru yang legendaris', bookCount: 18, status: 'Inactive' },
+  { id: 7, name: 'Agatha Christie', country: 'Inggris', bio: 'Ratu novel detektif dengan karakter ikonik Hercule Poirot', bookCount: 73, status: 'Inactive' },
+  { id: 8, name: 'Dee Lestari', country: 'Indonesia', bio: 'Penulis dan musisi multi-talenta, terkenal dengan seri Supernova', bookCount: 9, status: 'Active' },
+];
+
+const EMPTY_FORM = { name: '', country: '', bio: '', status: 'Active' };
+
+const COUNTRY_OPTIONS = [
+  'Indonesia', 'Inggris', 'Amerika', 'Jepang', 'Korea', 'Prancis',
+  'Jerman', 'Italia', 'Spanyol', 'India', 'Australia', 'Lainnya',
 ];
 
 export default function AuthorManager() {
   const [authors, setAuthors] = useState(initialAuthors);
   const [search, setSearch] = useState('');
-  const [editModal, setEditModal] = useState({ open: false, author: null });
+  const [formModal, setFormModal] = useState({ open: false, mode: null, author: null });
   const [deleteDialog, setDeleteDialog] = useState({ open: false, author: null });
-  const [form, setForm] = useState({ name: '', country: '', bio: '', status: 'Active' });
+  const [form, setForm] = useState(EMPTY_FORM);
   const [errors, setErrors] = useState({});
+  const [newRowId, setNewRowId] = useState(null);
+  const nameRef = useRef(null);
 
-  // ===== FILTERED DATA =====
+  // ─── FILTERED ───
   const filtered = useMemo(() => {
     if (!search.trim()) return authors;
     const q = search.toLowerCase();
@@ -36,19 +46,35 @@ export default function AuthorManager() {
     );
   }, [authors, search]);
 
-  // ===== VALIDATE FORM =====
+  const totalBooks = useMemo(() => authors.reduce((s, a) => s + a.bookCount, 0), [authors]);
+  const activeCount = useMemo(() => authors.filter((a) => a.status === 'Active').length, [authors]);
+
+  // ─── VALIDATE ───
   const validate = () => {
     const errs = {};
     if (!form.name.trim()) errs.name = 'Nama penulis wajib diisi';
-    else if (form.name.trim().length < 2) errs.name = 'Nama minimal 2 karakter';
-    if (!form.country.trim()) errs.country = 'Negara wajib diisi';
+    else if (form.name.trim().length < 2) errs.name = 'Minimal 2 karakter';
+    else if (form.name.trim().length > 80) errs.name = 'Maksimal 80 karakter';
+
+    if (!form.country) errs.country = 'Negara wajib dipilih';
+
     if (!form.bio.trim()) errs.bio = 'Bio wajib diisi';
-    else if (form.bio.trim().length < 10) errs.bio = 'Bio minimal 10 karakter';
+    else if (form.bio.trim().length < 10) errs.bio = 'Minimal 10 karakter';
+    else if (form.bio.trim().length > 250) errs.bio = 'Maksimal 250 karakter';
+
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
 
-  // ===== OPEN EDIT MODAL =====
+  // ─── OPEN CREATE ───
+  const openCreate = () => {
+    setForm(EMPTY_FORM);
+    setErrors({});
+    setFormModal({ open: true, mode: 'create', author: null });
+    setTimeout(() => nameRef.current?.focus(), 100);
+  };
+
+  // ─── OPEN EDIT ───
   const openEdit = (author) => {
     setForm({
       name: author.name,
@@ -57,27 +83,53 @@ export default function AuthorManager() {
       status: author.status,
     });
     setErrors({});
-    setEditModal({ open: true, author });
+    setFormModal({ open: true, mode: 'edit', author });
+    setTimeout(() => nameRef.current?.focus(), 100);
   };
 
-  // ===== SUBMIT UPDATE =====
+  // ─── SUBMIT CREATE ───
+  const handleCreate = () => {
+    if (!validate()) return;
+
+    const newId = Math.max(0, ...authors.map((a) => a.id)) + 1;
+    const newAuthor = {
+      id: newId,
+      name: form.name.trim(),
+      country: form.country,
+      bio: form.bio.trim(),
+      bookCount: 0,
+      status: form.status,
+    };
+    setAuthors((prev) => [newAuthor, ...prev]);
+    setNewRowId(newId);
+    setTimeout(() => setNewRowId(null), 600);
+
+    setFormModal({ open: false, mode: null, author: null });
+    showToast({
+      type: 'success',
+      title: 'Penulis Baru Ditambahkan',
+      desc: `"${newAuthor.name}" berhasil didaftarkan ke sistem.`,
+    });
+  };
+
+  // ─── SUBMIT UPDATE ───
   const handleUpdate = () => {
     if (!validate()) return;
 
     setAuthors((prev) =>
       prev.map((a) =>
-        a.id === editModal.author.id
+        a.id === formModal.author.id
           ? {
               ...a,
               name: form.name.trim(),
-              country: form.country.trim(),
+              country: form.country,
               bio: form.bio.trim(),
               status: form.status,
             }
           : a
       )
     );
-    setEditModal({ open: false, author: null });
+    setFormModal({ open: false, mode: null, author: null });
     showToast({
       type: 'success',
       title: 'Penulis Diperbarui',
@@ -85,12 +137,9 @@ export default function AuthorManager() {
     });
   };
 
-  // ===== OPEN DELETE DIALOG =====
-  const openDelete = (author) => {
-    setDeleteDialog({ open: true, author });
-  };
+  // ─── DELETE ───
+  const openDelete = (author) => setDeleteDialog({ open: true, author });
 
-  // ===== CONFIRM DELETE =====
   const handleDelete = () => {
     const name = deleteDialog.author.name;
     setAuthors((prev) => prev.filter((a) => a.id !== deleteDialog.author.id));
@@ -102,108 +151,100 @@ export default function AuthorManager() {
     });
   };
 
-  // ===== STATUS BADGE =====
-  const StatusBadge = ({ status }) => (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '5px',
-        padding: '3px 12px',
-        borderRadius: '100px',
-        fontSize: '0.75rem',
-        fontWeight: 700,
-        background:
-          status === 'Active'
-            ? 'var(--admin-success-glow)'
-            : 'rgba(139, 143, 163, 0.1)',
-        color: status === 'Active' ? 'var(--admin-success)' : 'var(--admin-text-muted)',
-        border: `1px solid ${status === 'Active' ? 'rgba(34,197,94,0.2)' : 'var(--admin-border)'}`,
-      }}
-    >
-      <span
-        style={{
-          width: '6px',
-          height: '6px',
-          borderRadius: '50%',
-          background: status === 'Active' ? 'var(--admin-success)' : 'var(--admin-text-muted)',
-        }}
-      />
-      {status === 'Active' ? 'Aktif' : 'Nonaktif'}
-    </span>
-  );
+  const closeModal = () => setFormModal({ open: false, mode: null, author: null });
+
+  const handleFormSubmit = () => {
+    if (formModal.mode === 'create') handleCreate();
+    else handleUpdate();
+  };
 
   return (
     <div className="crud-container">
-      {/* HEADER */}
+      {/* ═══ HEADER ═══ */}
       <div className="crud-header">
-        <h2 className="crud-title">
-          <span className="icon-badge">✍️</span>
-          Manajemen Penulis
-        </h2>
-        <div className="crud-stats">
-          <div className="stat-chip">
-            Total: <span>{authors.length}</span>
-          </div>
-          <div className="stat-chip">
-            Aktif: <span>{authors.filter((a) => a.status === 'Active').length}</span>
-          </div>
-          <div className="stat-chip">
-            Ditampilkan: <span>{filtered.length}</span>
+        <div className="crud-title-group">
+          <h2 className="crud-title">
+            <span className="icon-badge">✍️</span>
+            Manajemen Penulis
+          </h2>
+          <p className="crud-subtitle">Kelola data penulis dan informasi profil mereka</p>
+        </div>
+        <div className="crud-header-right">
+          <div className="crud-stats">
+            <div className="stat-chip">Penulis: <span>{authors.length}</span></div>
+            <div className="stat-chip">Aktif: <span>{activeCount}</span></div>
+            <div className="stat-chip">Total Buku: <span>{totalBooks}</span></div>
           </div>
         </div>
       </div>
 
-      {/* SEARCH */}
-      <div className="crud-search">
-        <span className="search-icon">🔍</span>
-        <input
-          type="text"
-          placeholder="Cari penulis berdasarkan nama, negara, atau bio..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+      {/* ═══ TOOLBAR ═══ */}
+      <div className="crud-toolbar">
+        <div className="crud-search">
+          <span className="search-icon">🔍</span>
+          <input
+            type="text"
+            placeholder="Cari penulis berdasarkan nama, negara, atau bio..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <button className="btn-add" onClick={openCreate}>
+          <span className="plus-icon">+</span>
+          Tambah Penulis
+        </button>
       </div>
 
-      {/* TABLE */}
+      {/* ═══ TABLE ═══ */}
       <div className="crud-table-wrapper">
         {filtered.length === 0 ? (
           <div className="empty-state">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
-            </svg>
-            <p>Tidak ada penulis yang ditemukan</p>
+            <div className="empty-icon">✍️</div>
+            <p className="empty-title">
+              {search ? 'Tidak ada hasil ditemukan' : 'Belum ada penulis'}
+            </p>
+            <p className="empty-desc">
+              {search
+                ? 'Coba kata kunci lain atau hapus filter pencarian'
+                : 'Klik tombol "Tambah Penulis" untuk mendaftarkan penulis baru'}
+            </p>
           </div>
         ) : (
           <table className="crud-table">
             <thead>
               <tr>
-                <th style={{ width: '70px' }}>ID</th>
+                <th style={{ width: '65px' }}>ID</th>
                 <th>Nama Penulis</th>
                 <th>Negara</th>
                 <th>Bio</th>
-                <th style={{ width: '90px' }}>Buku</th>
+                <th style={{ width: '80px' }}>Buku</th>
                 <th style={{ width: '90px' }}>Status</th>
-                <th style={{ width: '160px' }}>Aksi</th>
+                <th style={{ width: '150px' }}>Aksi</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((author) => (
-                <tr key={author.id}>
+                <tr key={author.id} className={newRowId === author.id ? 'row-new' : ''}>
                   <td><span className="col-id">#{String(author.id).padStart(3, '0')}</span></td>
                   <td><span className="col-name">{author.name}</span></td>
-                  <td>{author.country}</td>
+                  <td>
+                    <span className="col-country">
+                      <span className="country-dot" />
+                      {author.country}
+                    </span>
+                  </td>
                   <td><span className="col-desc" title={author.bio}>{author.bio}</span></td>
                   <td><span className="col-count">📖 {author.bookCount}</span></td>
-                  <td><StatusBadge status={author.status} /></td>
+                  <td>
+                    <span className={`status-badge ${author.status === 'Active' ? 'active' : 'inactive'}`}>
+                      <span className="status-dot" />
+                      {author.status === 'Active' ? 'Aktif' : 'Nonaktif'}
+                    </span>
+                  </td>
                   <td>
                     <div className="col-actions">
-                      <button className="btn btn-edit" onClick={() => openEdit(author)}>
-                        ✏️ Edit
-                      </button>
-                      <button className="btn btn-delete" onClick={() => openDelete(author)}>
-                        🗑️ Hapus
-                      </button>
+                      <button className="btn btn-edit" onClick={() => openEdit(author)}>✏️ Edit</button>
+                      <button className="btn btn-delete" onClick={() => openDelete(author)}>🗑️ Hapus</button>
                     </div>
                   </td>
                 </tr>
@@ -211,97 +252,97 @@ export default function AuthorManager() {
             </tbody>
           </table>
         )}
+        {filtered.length > 0 && (
+          <div className="table-footer">
+            <span>Menampilkan {filtered.length} dari {authors.length} penulis</span>
+            <span>{search && 'Filter aktif — '}<span style={{ color: 'var(--admin-accent)' }}>{totalBooks} buku terkait</span></span>
+          </div>
+        )}
       </div>
 
-      {/* EDIT MODAL */}
+      {/* ═══ CREATE / EDIT MODAL ═══ */}
       <Modal
-        isOpen={editModal.open}
-        onClose={() => setEditModal({ open: false, author: null })}
-        title="Edit Penulis"
-        icon="✏️"
+        isOpen={formModal.open}
+        onClose={closeModal}
+        title={formModal.mode === 'create' ? 'Tambah Penulis Baru' : 'Edit Penulis'}
+        mode={formModal.mode}
         footer={
           <>
-            <button
-              className="btn btn-cancel"
-              onClick={() => setEditModal({ open: false, author: null })}
-            >
-              Batal
-            </button>
-            <button className="btn btn-primary" onClick={handleUpdate}>
-              💾 Simpan Perubahan
+            <button className="btn btn-cancel" onClick={closeModal}>Batal</button>
+            <button className="btn btn-primary" onClick={handleFormSubmit}>
+              {formModal.mode === 'create' ? '✚ Tambah Penulis' : '💾 Simpan Perubahan'}
             </button>
           </>
         }
       >
+        {/* Nama */}
         <div className="form-group">
-          <label className="form-label">Nama Penulis</label>
+          <label className="form-label">
+            Nama Penulis <span className="required">*</span>
+          </label>
           <input
-            className="form-input"
+            ref={nameRef}
+            className={`form-input ${errors.name ? 'error' : ''}`}
             type="text"
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
-            placeholder="Masukkan nama penulis..."
+            placeholder="Contoh: Tere Liye, Dee Lestari..."
+            maxLength={80}
+            onKeyDown={(e) => e.key === 'Enter' && handleFormSubmit()}
           />
-          {errors.name && <p style={{ color: 'var(--admin-danger)', fontSize: '0.78rem', marginTop: '6px' }}>{errors.name}</p>}
+          {errors.name ? (
+            <p className="form-error">⚠ {errors.name}</p>
+          ) : (
+            <p className="form-hint">{form.name.length}/80 karakter</p>
+          )}
         </div>
 
+        {/* Negara */}
         <div className="form-group">
-          <label className="form-label">Negara</label>
-          <input
-            className="form-input"
-            type="text"
+          <label className="form-label">
+            Negara Asal <span className="required">*</span>
+          </label>
+          <select
+            className={`form-select ${errors.country ? 'error' : ''}`}
             value={form.country}
             onChange={(e) => setForm({ ...form, country: e.target.value })}
-            placeholder="Masukkan negara asal..."
-          />
-          {errors.country && <p style={{ color: 'var(--admin-danger)', fontSize: '0.78rem', marginTop: '6px' }}>{errors.country}</p>}
+          >
+            <option value="">— Pilih Negara —</option>
+            {COUNTRY_OPTIONS.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+          {errors.country && <p className="form-error">⚠ {errors.country}</p>}
         </div>
 
+        {/* Bio */}
         <div className="form-group">
-          <label className="form-label">Bio / Deskripsi Singkat</label>
+          <label className="form-label">
+            Bio / Deskripsi Singkat <span className="required">*</span>
+          </label>
           <textarea
-            className="form-textarea"
+            className={`form-textarea ${errors.bio ? 'error' : ''}`}
             value={form.bio}
             onChange={(e) => setForm({ ...form, bio: e.target.value })}
-            placeholder="Masukkan bio penulis..."
+            placeholder="Tuliskan deskripsi singkat tentang penulis ini..."
             rows={3}
+            maxLength={250}
           />
-          {errors.bio && <p style={{ color: 'var(--admin-danger)', fontSize: '0.78rem', marginTop: '6px' }}>{errors.bio}</p>}
+          {errors.bio ? (
+            <p className="form-error">⚠ {errors.bio}</p>
+          ) : (
+            <p className="form-hint">{form.bio.length}/250 karakter</p>
+          )}
         </div>
 
+        {/* Status */}
         <div className="form-group">
           <label className="form-label">Status</label>
-          <div style={{ display: 'flex', gap: '12px' }}>
+          <div className="radio-group">
             {['Active', 'Inactive'].map((s) => (
               <label
                 key={s}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '10px 18px',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  background:
-                    form.status === s
-                      ? s === 'Active'
-                        ? 'var(--admin-success-glow)'
-                        : 'rgba(139,143,163,0.1)'
-                      : 'var(--admin-bg)',
-                  border: `1px solid ${
-                    form.status === s
-                      ? s === 'Active'
-                        ? 'rgba(34,197,94,0.3)'
-                        : 'var(--admin-border)'
-                      : 'var(--admin-border)'
-                  }`,
-                  color: form.status === s ? (s === 'Active' ? 'var(--admin-success)' : 'var(--admin-text)') : 'var(--admin-text-muted)',
-                  fontWeight: form.status === s ? '600' : '400',
-                  fontSize: '0.88rem',
-                  transition: 'all 0.2s ease',
-                  flex: 1,
-                  justifyContent: 'center',
-                }}
+                className={`radio-option ${form.status === s ? (s === 'Active' ? 'selected-active' : 'selected-inactive') : ''}`}
               >
                 <input
                   type="radio"
@@ -309,7 +350,6 @@ export default function AuthorManager() {
                   value={s}
                   checked={form.status === s}
                   onChange={() => setForm({ ...form, status: s })}
-                  style={{ display: 'none' }}
                 />
                 {s === 'Active' ? '🟢 Aktif' : '⚪ Nonaktif'}
               </label>
@@ -317,19 +357,27 @@ export default function AuthorManager() {
           </div>
         </div>
 
-        <div style={{ padding: '10px 14px', background: 'rgba(59,130,246,0.06)', borderRadius: '8px', border: '1px solid rgba(59,130,246,0.12)' }}>
-          <p style={{ fontSize: '0.78rem', color: 'var(--admin-text-muted)' }}>
-            ℹ️ Penulis ini memiliki <strong style={{ color: '#60a5fa' }}>{editModal.author?.bookCount} buku</strong> yang terdaftar di sistem.
-          </p>
-        </div>
+        {formModal.mode === 'edit' && (
+          <div className="form-info-box">
+            <p>
+              ℹ️ Penulis ini memiliki <strong>{formModal.author?.bookCount} buku</strong> yang
+              terdaftar di sistem.
+            </p>
+          </div>
+        )}
       </Modal>
 
-      {/* DELETE CONFIRM */}
+      {/* ═══ DELETE CONFIRM ═══ */}
       <ConfirmDialog
         isOpen={deleteDialog.open}
         onClose={() => setDeleteDialog({ open: false, author: null })}
         onConfirm={handleDelete}
         itemName={deleteDialog.author?.name}
+        extraInfo={
+          deleteDialog.author?.bookCount > 0
+            ? `Penulis ini memiliki ${deleteDialog.author.bookCount} buku yang terkait.`
+            : null
+        }
       />
     </div>
   );
